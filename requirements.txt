@@ -1,10 +1,7 @@
-llama-cpp-python
-streamlit
-langchain
-langchain-community
-langchain-huggingface
-langchain-text-splitters
-faiss-cpu
-pypdf
-sentence-transformers
-huggingface_hub
+streamlit>=1.30.0
+# llama-cpp-python>=0.2.23  <-- Ajoute un # devant
+mistralai>=1.0.0
+huggingface_hub>=0.20.0
+pandas>=2.0.0
+pypdf>=3.17.0
+watchdog>=3.0.0

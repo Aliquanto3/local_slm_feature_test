@@ -1,8 +1,14 @@
 # Ignorer les modèles lourds (ils seront téléchargés via setup_models.py)
 *.gguf
+models_gguf/
+
+# Ignorer les fichiers d'API keys et configurations sensibles
+api_keys.txt
 
 # Ignorer les dossiers systèmes et environnements virtuels
 __pycache__/
 venv/
 .env
+.venv/
 .DS_Store
+.cache/
