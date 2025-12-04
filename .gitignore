@@ -1,0 +1,8 @@
+# Ignorer les modèles lourds (ils seront téléchargés via setup_models.py)
+*.gguf
+
+# Ignorer les dossiers systèmes et environnements virtuels
+__pycache__/
+venv/
+.env
+.DS_Store
