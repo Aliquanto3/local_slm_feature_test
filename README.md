@@ -114,8 +114,7 @@ Pour utiliser les modèles **Cloud** (Mistral Large, Ministral API, Magistral), 
 L'application s'ouvrira automatiquement dans votre navigateur à l'adresse `http://localhost:8501`.
 
 ## 😊 Test de l'application
-
-Tout est correctement installé et fonctionnel ? Regardez le fichier [Test Protocol](https://github.com/Aliquanto3/local_slm_feature_test/blob/main/TEST_PROTOCOL.md) pour des idées de fonctionnalités à tester !
+Tout est correctement installé et fonctionnel ? Regardez le fichier [Test Protocol](https://github.com/Aliquanto3/local_slm_feature_test/blob/main/documentation/TEST_PROTOCOL.md) pour des idées de fonctionnalités à tester !
 
 ## 💡 Et pour aller plus loin ?
 Vous souhaitez essayer d'autres modèles ? 
