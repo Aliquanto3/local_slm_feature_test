@@ -117,6 +117,11 @@ L'application s'ouvrira automatiquement dans votre navigateur à l'adresse `http
 
 Tout est correctement installé et fonctionnel ? Regardez le fichier [Test Protocol](https://github.com/Aliquanto3/local_slm_feature_test/blob/main/TEST_PROTOCOL.md) pour des idées de fonctionnalités à tester !
 
+## 💡 Et pour aller plus loin ?
+Vous souhaitez essayer d'autres modèles ? 
+Modifiez directement le JSON du fichier [models_config.py](https://github.com/Aliquanto3/local_slm_feature_test/blob/main/config/models_config.py) pour y intégrer les caractéristiques du modèle de votre choix. Si vous remplissez correctement le JSON, vous pourrez alors télécharger le modèle via le script de téléchargement, puis le voir s'afficher directement dans l'application.
+*__Remarque__ : Assurez-vous de trouver un lien de téléchargement pour un modèle "GGUF", pour qu'il soit compatible avec la libraire "llama-cpp-python" utilisée pour l'inférence locale.*
+
 ## 🐛 Dépannage Courant
 
 **Erreur : `Failed to load model from file` / `tensor not found`**

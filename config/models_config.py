@@ -1,15 +1,25 @@
 """
-Configuration centralisée des modèles pour Wavestone Local AI Workbench.
-Fait le lien entre l'interface Streamlit et les fichiers GGUF téléchargés.
+Configuration centralisée (Unique Source of Truth) pour Wavestone Local AI Workbench.
+Utilisé par :
+1. app.py (pour l'affichage et le chargement)
+2. download_gguf_models.py (pour le téléchargement)
 """
 import os
 
+# Paramètres globaux
 LOCAL_MODEL_DIR = "models_gguf"
 
+# Configuration du téléchargement (anciennement dans le JSON)
+DOWNLOAD_SETTINGS = {
+    "local_dir": LOCAL_MODEL_DIR,
+    "resume_download": True,
+    "max_workers": 2
+}
+
 MODELS_DB = {
-    # -------------------------------------------------------------------------
-    # ☁️ MISTRAL API
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # ☁️ API MISTRAL (Cloud)
+    # =========================================================================
     "☁️ Mistral": {
         "Mistral Large 3": {
             "type": "api",
@@ -113,12 +123,16 @@ MODELS_DB = {
         }
     },
 
-    # -------------------------------------------------------------------------
+    # =========================================================================
     # 🏠 IBM GRANITE
-    # -------------------------------------------------------------------------
-    "🏠 IBM - Granite": {
+    # =========================================================================
+    "🏠 IBM Granite": {
         "Granite 3.0 3B Instruct": {
             "type": "local",
+            # Infos pour le téléchargement
+            "repo_id": "bartowski/granite-3.0-3b-a800m-instruct-GGUF",
+            "filename": "granite-3.0-3b-a800m-instruct-Q4_K_M.gguf",
+            # Chemin complet utilisé par l'app (construit dynamiquement)
             "file": os.path.join(LOCAL_MODEL_DIR, "granite-3.0-3b-a800m-instruct-Q4_K_M.gguf"),
             "ctx": 4096,
             "info": {
@@ -137,6 +151,8 @@ MODELS_DB = {
         },
         "Granite 4.0 1B": {
             "type": "local",
+            "repo_id": "ibm-granite/granite-4.0-1b-GGUF",
+            "filename": "granite-4.0-1b-Q4_K_M.gguf",
             "file": os.path.join(LOCAL_MODEL_DIR, "granite-4.0-1b-Q4_K_M.gguf"),
             "ctx": 4096,
             "info": {
@@ -153,6 +169,8 @@ MODELS_DB = {
         },
         "Granite 4.0 350M": {
             "type": "local",
+            "repo_id": "ibm-granite/granite-4.0-350m-GGUF",
+            "filename": "granite-4.0-350m-Q4_K_M.gguf",
             "file": os.path.join(LOCAL_MODEL_DIR, "granite-4.0-350m-Q4_K_M.gguf"),
             "ctx": 4096,
             "info": {
@@ -170,12 +188,14 @@ MODELS_DB = {
         }
     },
 
-    # -------------------------------------------------------------------------
+    # =========================================================================
     # 🏠 META LLAMA
-    # -------------------------------------------------------------------------
-    "🏠 Meta - Llama": {
+    # =========================================================================
+    "🏠 Meta Llama": {
         "Llama 3.2 1B Instruct": {
             "type": "local",
+            "repo_id": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+            "filename": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
             "file": os.path.join(LOCAL_MODEL_DIR, "Llama-3.2-1B-Instruct-Q4_K_M.gguf"),
             "ctx": 128000,
             "info": {
@@ -193,6 +213,8 @@ MODELS_DB = {
         },
         "Llama 3.2 3B Instruct": {
             "type": "local",
+            "repo_id": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+            "filename": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
             "file": os.path.join(LOCAL_MODEL_DIR, "Llama-3.2-3B-Instruct-Q4_K_M.gguf"),
             "ctx": 128000,
             "info": {
@@ -208,13 +230,15 @@ MODELS_DB = {
             }
         }
     },
-
-    # -------------------------------------------------------------------------
-    # 🏠 QWEN
-    # -------------------------------------------------------------------------
-    "🏠 Alibaba - Qwen": {
+    
+    # =========================================================================
+    # 🏠 QWEN (Alibaba)
+    # =========================================================================
+    "🏠 Qwen (Alibaba)": {
         "Qwen 2.5 1.5B Instruct": {
             "type": "local",
+            "repo_id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+            "filename": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
             "file": os.path.join(LOCAL_MODEL_DIR, "qwen2.5-1.5b-instruct-q4_k_m.gguf"),
             "ctx": 32768,
             "info": {
@@ -231,6 +255,8 @@ MODELS_DB = {
         },
         "Qwen 2.5 3B Instruct": {
             "type": "local",
+            "repo_id": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+            "filename": "qwen2.5-3b-instruct-q4_k_m.gguf",
             "file": os.path.join(LOCAL_MODEL_DIR, "qwen2.5-3b-instruct-q4_k_m.gguf"),
             "ctx": 32768,
             "info": {
@@ -247,12 +273,14 @@ MODELS_DB = {
         }
     },
 
-    # -------------------------------------------------------------------------
-    # 🏠 MICROSOFT / GOOGLE / HF
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # 🏠 MICROSOFT, GOOGLE & HF
+    # =========================================================================
     "🏠 Microsoft, Google & HF": {
         "Phi-3.5 Mini Instruct": {
             "type": "local",
+            "repo_id": "bartowski/Phi-3.5-mini-instruct-GGUF",
+            "filename": "Phi-3.5-mini-instruct-Q4_K_M.gguf",
             "file": os.path.join(LOCAL_MODEL_DIR, "Phi-3.5-mini-instruct-Q4_K_M.gguf"),
             "ctx": 128000,
             "info": {
@@ -270,6 +298,8 @@ MODELS_DB = {
         },
         "Gemma 2 2B IT": {
             "type": "local",
+            "repo_id": "bartowski/gemma-2-2b-it-GGUF",
+            "filename": "gemma-2-2b-it-Q4_K_M.gguf",
             "file": os.path.join(LOCAL_MODEL_DIR, "gemma-2-2b-it-Q4_K_M.gguf"),
             "ctx": 8192,
             "info": {
@@ -284,8 +314,10 @@ MODELS_DB = {
                 "link": "https://huggingface.co/google/gemma-2-2b-it"
             }
         },
-        "SmolLM2 1.7B Instruct": {
+         "SmolLM2 1.7B Instruct": {
             "type": "local",
+            "repo_id": "bartowski/SmolLM2-1.7B-Instruct-GGUF",
+            "filename": "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
             "file": os.path.join(LOCAL_MODEL_DIR, "SmolLM2-1.7B-Instruct-Q4_K_M.gguf"),
             "ctx": 2048,
             "info": {
