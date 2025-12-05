@@ -268,7 +268,7 @@ MODELS_DB = {
                 "link": "https://huggingface.co/microsoft/Phi-3.5-mini-instruct"
             }
         },
-        "Gemma 2 2B Instruct": {
+        "Gemma 2 2B IT": {
             "type": "local",
             "file": os.path.join(LOCAL_MODEL_DIR, "gemma-2-2b-it-Q4_K_M.gguf"),
             "ctx": 8192,
@@ -284,7 +284,7 @@ MODELS_DB = {
                 "link": "https://huggingface.co/google/gemma-2-2b-it"
             }
         },
-        "SmolLM2 1.7B": {
+        "SmolLM2 1.7B Instruct": {
             "type": "local",
             "file": os.path.join(LOCAL_MODEL_DIR, "SmolLM2-1.7B-Instruct-Q4_K_M.gguf"),
             "ctx": 2048,

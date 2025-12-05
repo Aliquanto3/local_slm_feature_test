@@ -8,30 +8,30 @@ Ce projet est une application **Streamlit** conçue pour benchmarker et démontr
 
 L'objectif est de prouver la viabilité de l'IA Générative "Edge" (offline) pour des cas d'usage métiers spécifiques (Triage, RGPD, RAG, IoT) sans nécessiter de GPU coûteux.
 
-![Workbench Screenshot](https://via.placeholder.com/800x400?text=Wavestone+Local+AI+Workbench+Preview)
+![Workbench Screenshot](https://raw.githubusercontent.com/Aliquanto3/local_slm_feature_test/refs/heads/main/documentation/workbench_screenshot.png)
 
 ## 🚀 Fonctionnalités
 
 * **Moteur Hybride :** Basculez instantanément entre Inférence Locale (CPU via `llama.cpp`) et Inférence Cloud (API Mistral).
 * **Modèles Supportés :**
     * 🏠 **Local :** 
-        * granite-4.0-350m
-        * granite-4.0-1b
-        * granite-3.0-3b-a800m-instruct
-        * gemma-3-1b-it
-        * Llama-3.2-1B-Instruct
-        * Llama-3.2-3B-Instruct
-        * Phi-3.5-mini-instruct
-        * Qwen2.5-1.5B-Instruct
-        * Qwen2.5-3B-Instruct
-        * SmolLM2-1.7B-Instruct     
+        * [granite-4.0-350m](https://huggingface.co/ibm-granite/granite-4.0-350m)
+        * [granite-4.0-1b](https://huggingface.co/ibm-granite/granite-4.0-1b)
+        * [granite-3.0-3b-a800m-instruct](https://huggingface.co/ibm-granite/granite-3.0-3b-a800m-instruct)
+        * [gemma-2-2b-it](https://huggingface.co/google/gemma-2-2b-it)
+        * [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)
+        * [Llama-3.2-3B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct)
+        * [Phi-3.5-mini-instruct](https://huggingface.co/microsoft/Phi-3.5-mini-instruct)
+        * [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct)
+        * [Qwen2.5-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct)
+        * [SmolLM2-1.7B-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct)     
     * ☁️ **API :** Mistral Large 3, Mistral Small 3.2, Magistral (Reasoning), Ministral 3 (3B/8B/14B).
-        * Mistral Large 3
-        * Mistral Small 3.2 
-        * Magistral Small 1.2
-        * Ministral 3 14B
-        * Ministral 3 8B
-        * Ministral 3 3B
+        * [Mistral Large 3](https://docs.mistral.ai/models/mistral-large-3-25-12)
+        * [Mistral Small 3.2](https://docs.mistral.ai/models/mistral-small-3-2-25-06) 
+        * [Magistral Small 1.2](https://docs.mistral.ai/models/magistral-small-1-2-25-09)
+        * [Ministral 3 14B](https://docs.mistral.ai/models/ministral-3-14b-25-12)
+        * [Ministral 3 8B](https://docs.mistral.ai/models/ministral-3-8b-25-12)
+        * [Ministral 3 3B](https://docs.mistral.ai/models/ministral-3-3b-25-12)
 * **Cas d'Usage Intégrés :**
     * 🏢 **Ops :** Triage d'emails et Anonymisation RGPD.
     * 🤖 **IoT :** Simulation de commandes via Function Calling.

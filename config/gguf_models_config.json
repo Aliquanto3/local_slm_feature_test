@@ -25,12 +25,12 @@
       "original_model": "ibm-granite/granite-3.0-3b-a800m-instruct"
     },
     {
-      "name": "Gemma 2 2B GGUF",
+      "name": "Gemma 2 2B IT GGUF",
       "repo_id": "bartowski/gemma-2-2b-it-GGUF",
       "filename": "gemma-2-2b-it-Q4_K_M.gguf",
       "quantization": "Q4_K_M",
       "size_gb": 1.5,
-      "original_model": "google/gemma-3-1b-it"
+      "original_model": "google/gemma-2-2b-it"
     },
     {
       "name": "Llama 3.2 1B Instruct GGUF",
