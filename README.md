@@ -1,7 +1,8 @@
 # 🧪 Wavestone Local AI Workbench
 
-**Auteur :** Anaël YAHI (Consultant Senior IA & Data Science, Wavestone)  
-**Licence :** Apache 2.0
+**Auteur :** [Anaël YAHI](https://www.linkedin.com/in/anaël-yahi/) (Consultant Senior IA & Data Science, Wavestone)  
+**Licence :** [Apache 2.0](https://fr.wikipedia.org/wiki/Licence_Apache) 
+*(cette application est libre et open source, si elle inclut les mentions de copyright)*
 
 Ce projet est une application **Streamlit** conçue pour benchmarker et démontrer les capacités des **Small Language Models (SLM)** tournant localement sur CPU, et les comparer avec les modèles Cloud de l'API Mistral AI (Large, Small, Ministral).
 
@@ -13,8 +14,24 @@ L'objectif est de prouver la viabilité de l'IA Générative "Edge" (offline) po
 
 * **Moteur Hybride :** Basculez instantanément entre Inférence Locale (CPU via `llama.cpp`) et Inférence Cloud (API Mistral).
 * **Modèles Supportés :**
-    * 🏠 **Local :** Llama 3.2 (1B/3B), Qwen 2.5, Gemma 2, Phi-3.5, SmolLM2.
+    * 🏠 **Local :** 
+        * granite-4.0-350m
+        * granite-4.0-1b
+        * granite-3.0-3b-a800m-instruct
+        * gemma-3-1b-it
+        * Llama-3.2-1B-Instruct
+        * Llama-3.2-3B-Instruct
+        * Phi-3.5-mini-instruct
+        * Qwen2.5-1.5B-Instruct
+        * Qwen2.5-3B-Instruct
+        * SmolLM2-1.7B-Instruct     
     * ☁️ **API :** Mistral Large 3, Mistral Small 3.2, Magistral (Reasoning), Ministral 3 (3B/8B/14B).
+        * Mistral Large 3
+        * Mistral Small 3.2 
+        * Magistral Small 1.2
+        * Ministral 3 14B
+        * Ministral 3 8B
+        * Ministral 3 3B
 * **Cas d'Usage Intégrés :**
     * 🏢 **Ops :** Triage d'emails et Anonymisation RGPD.
     * 🤖 **IoT :** Simulation de commandes via Function Calling.
@@ -26,7 +43,7 @@ L'objectif est de prouver la viabilité de l'IA Générative "Edge" (offline) po
 
 Pour reproduire cet environnement (spécifiquement sous Windows), il est **impératif** de respecter la version de Python ci-dessous pour éviter les erreurs de compilation C++.
 
-* **OS :** Windows 10/11 (Testé) ou Linux/Mac.
+* **OS :** Windows 10/11 *(testé sur 11)* ou Linux/Mac.
 * **Python :** **Version 3.11** (Requis pour la compatibilité des roues pré-compilées `llama-cpp-python`).
 * **Matériel :** CPU (8GB+ RAM recommandé). Pas de GPU nécessaire.
 
@@ -34,12 +51,12 @@ Pour reproduire cet environnement (spécifiquement sous Windows), il est **impé
 
 ### 1. Cloner le projet
 ```bash
-git clone [https://github.com/votre-username/wavestone-local-ai-workbench.git](https://github.com/votre-username/wavestone-local-ai-workbench.git)
-cd wavestone-local-ai-workbench
+git clone [https://github.com/Aliquanto3/local_slm_feature_test](https://github.com/Aliquanto3/local_slm_feature_test)
+cd local_slm_feature_test
 ```
 
 ### 2. Créer l'environnement virtuel (Python 3.11)
-Assurez-vous d'avoir Python 3.11 installé.
+Assurez-vous d'avoir [Python 3.11](https://www.python.org/downloads/release/python-3119/) installé *(testé sur 3.11.9)*.
 ```powershell
 # Windows (PowerShell)
 py -3.11 -m venv .venv
@@ -50,11 +67,14 @@ C'est l'étape critique. Nous installons une version pré-compilée de `llama-cp
 
 ```powershell
 # 1. Installer llama-cpp-python (Version CPU pré-compilée pour Windows/3.11)
-.\.venv\Scripts\python.exe -m pip install llama-cpp-python --extra-index-url [https://abetlen.github.io/llama-cpp-python/whl/cpu](https://abetlen.github.io/llama-cpp-python/whl/cpu)
+.\.venv\Scripts\python.exe -m pip install "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.2/llama_cpp_python-0.3.2-cp311-cp311-win_amd64.whl" --force-reinstall --no-cache-dir
+```
 
+```powershell
 # 2. Installer le reste des dépendances (Streamlit, Mistral, etc.)
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
+*__Remarque__ : il est proposé ici d'utiliser ".\.venv\Scripts\python.exe" plutôt que de passer complètement dans le venv pour pouvoir exécuter ce code sur les PC bloquant l'exécution de scripts.*
 
 ## ⬇️ Téléchargement des Modèles
 
@@ -64,6 +84,18 @@ Le projet inclut un script utilitaire qui télécharge automatiquement les versi
 .\.venv\Scripts\python.exe download_gguf_models.py
 ```
 *Le script vérifiera l'existence des fichiers dans le dossier `models_gguf/` et ne téléchargera que les manquants.*
+
+__Remarque__ : avant de commencer les téléchargements, vous pouvez essayer le paramètre -dry-run pour vérifier que toutes les sources fonctionnent.
+
+```powershell
+.\.venv\Scripts\python.exe download_gguf_models.py --dry-run
+```
+
+Le paramètre --force vous permet de réinstaller des modèles déjà existants (par exemple si vous craignez que le fichier initial soit corrompu).
+
+```powershell
+.\.venv\Scripts\python.exe download_gguf_models.py --force
+```
 
 ## ⚙️ Configuration API (Optionnel)
 
@@ -80,6 +112,10 @@ Pour utiliser les modèles **Cloud** (Mistral Large, Ministral API, Magistral), 
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 L'application s'ouvrira automatiquement dans votre navigateur à l'adresse `http://localhost:8501`.
+
+## 😊 Test de l'application
+
+Tout est correctement installé et fonctionnel ? Regardez le fichier [Test Protocol](https://github.com/Aliquanto3/local_slm_feature_test/blob/main/TEST_PROTOCOL.md) pour des idées de fonctionnalités à tester !
 
 ## 🐛 Dépannage Courant
 
@@ -100,4 +136,5 @@ Les contributions sont les bienvenues ! Merci d'ouvrir une issue avant de propos
 ## 📜 Licence
 
 Ce projet est sous licence **Apache 2.0**.
-Copyright © 2025 Wavestone.
+Copyright © 2025 [Wavestone](https://www.wavestone.com/fr/).
+Veuillez créditer [Anaël Yahi](https://www.linkedin.com/in/anaël-yahi/) lors de la réutilisation de ce projet.

@@ -19,7 +19,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def load_config(config_path="gguf_models_config.json"):
+def load_config(config_path="config/gguf_models_config.json"):
     """Charge la configuration depuis le fichier JSON"""
     try:
         with open(config_path, 'r', encoding='utf-8') as f:

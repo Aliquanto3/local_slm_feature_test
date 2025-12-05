@@ -1,7 +1,31 @@
 {
   "models": [
     {
-      "name": "Gemma 2 2B Instruct GGUF",
+      "name": "Granite 4.0 350M GGUF",
+      "repo_id": "ibm-granite/granite-4.0-350m-GGUF",
+      "filename": "granite-4.0-350m-Q4_K_M.gguf",
+      "quantization": "Q4_K_M",
+      "size_gb": 0.3,
+      "original_model": "ibm-granite/granite-4.0-350m"
+    },
+    {
+      "name": "Granite 4.0 1B GGUF",
+      "repo_id": "ibm-granite/granite-4.0-1b-GGUF",
+      "filename": "granite-4.0-1b-Q4_K_M.gguf",
+      "quantization": "Q4_K_M",
+      "size_gb": 1.0,
+      "original_model": "ibm-granite/granite-4.0-1b"
+    },
+    {
+      "name": "Granite 3.0 3B A800M Instruct GGUF",
+      "repo_id": "bartowski/granite-3.0-3b-a800m-instruct-GGUF",
+      "filename": "granite-3.0-3b-a800m-instruct-Q4_K_M.gguf",
+      "quantization": "Q4_K_M",
+      "size_gb": 2.0,
+      "original_model": "ibm-granite/granite-3.0-3b-a800m-instruct"
+    },
+    {
+      "name": "Gemma 2 2B GGUF",
       "repo_id": "bartowski/gemma-2-2b-it-GGUF",
       "filename": "gemma-2-2b-it-Q4_K_M.gguf",
       "quantization": "Q4_K_M",
