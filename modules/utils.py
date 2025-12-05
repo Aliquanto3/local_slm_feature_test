@@ -3,8 +3,9 @@ import time
 import pypdf
 from io import StringIO
 import streamlit as st
+from transformers import AutoTokenizer
 
-# Gestion des imports optionnels (évite de planter si libs manquantes)
+# Gestion des imports optionnels
 try:
     from llama_cpp import Llama
     HAS_LOCAL_LIB = True
@@ -17,7 +18,7 @@ try:
 except ImportError:
     HAS_MISTRAL_LIB = False
 
-# --- FONCTION DE CHARGEMENT DE MODÈLE (CACHÉE) ---
+# --- CHARGEMENT DU MOTEUR (LOCAL) ---
 @st.cache_resource(show_spinner="Chargement du modèle en mémoire RAM...", max_entries=1)
 def load_local_llm(path, ctx_size):
     """Charge un modèle GGUF en mémoire avec Llama-cpp"""
@@ -33,12 +34,17 @@ def load_local_llm(path, ctx_size):
     except Exception as e:
         raise RuntimeError(f"Erreur Llama-cpp : {str(e)}")
 
-# --- HELPERS FICHIERS ---
-def count_tokens_local(text: str, llm_instance) -> int:
-    """Compte les tokens pour estimer la charge"""
-    if not text or not llm_instance: return 0
-    try: return len(llm_instance.tokenize(text.encode("utf-8")))
-    except: return 0
+# --- HELPERS FICHIERS & TOKENS ---
+
+def count_tokens_approx(text: str) -> int:
+    """
+    Estimation rapide et légère du nombre de tokens.
+    Ratio conservateur : 1 token ~= 2.7 caractères.
+    Ne nécessite aucun chargement de modèle.
+    """
+    if not text: 
+        return 0
+    return int(len(text) / 2.7)
 
 def extract_text_from_file(uploaded_file):
     """Extrait le texte brut d'un PDF ou TXT"""
@@ -61,12 +67,7 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
     """
     Fonction unique pour gérer l'inférence (Streamée)
     Compatible : Mistral API & Llama.cpp Local
-    Retourne : Le texte final généré (tout en mettant à jour l'UI via un placeholder passé en arg si besoin, 
-               mais ici on gère l'UI dans la vue, donc on va faire un générateur python)
     """
-    # Note: Pour simplifier l'intégration existante dans votre app.py,
-    # cette fonction va gérer l'affichage direct via st.empty() comme avant.
-    
     response_placeholder = st.empty()
     
     # Check Sécurité
@@ -114,9 +115,9 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
 
     # --- BRANCHE LOCALE ---
     else:
-        # Estimation tokens input (Approximatif)
+        # Estimation tokens input (CORRECTION ICI : Un seul argument)
         prompt_str = " ".join([m["content"] for m in messages])
-        input_tokens = count_tokens_local(prompt_str, llm_local)
+        input_tokens = count_tokens_approx(prompt_str)
         
         try:
             stream = llm_local.create_chat_completion(
@@ -138,7 +139,6 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
         except ValueError as e:
             # FIX AUTOMATIQUE : Si le modèle (ex: Gemma) ne supporte pas le role "system"
             if "System role not supported" in str(e):
-                # On fusionne le system prompt dans le premier message user
                 system_msg = next((m for m in messages if m['role'] == 'system'), None)
                 new_msgs = [m for m in messages if m['role'] != 'system']
                 
@@ -146,7 +146,6 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
                     new_msgs[0]['content'] = f"Context/Instruction: {system_msg['content']}\n\nUser Query: {new_msgs[0]['content']}"
                     
                     try:
-                        # Seconde tentative avec le prompt fusionné
                         stream = llm_local.create_chat_completion(
                             messages=new_msgs, stream=True, temperature=temperature, 
                             top_p=top_p, top_k=top_k, max_tokens=max_tokens
@@ -176,7 +175,7 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
     cols = st.columns(4)
     cols[0].info(f"⏱️ {duration:.2f} s")
     cols[1].info(f"⚡ {speed:.1f} t/s")
-    cols[2].info(f"📥 {input_tokens} tok")
+    cols[2].info(f"📥 ~{input_tokens} tok")
     cols[3].info(f"📤 {output_tokens} tok")
     
     return full_response
