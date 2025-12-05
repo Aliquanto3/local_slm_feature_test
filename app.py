@@ -184,25 +184,39 @@ with param_col:
     with st.container(border=True):
         st.markdown("##### 🌱 Green IT")
         
-        # Trouver l'index par défaut
-        default_idx = SORTED_COUNTRIES.index("France") if "France" in SORTED_COUNTRIES else 0
+        # 1. Logique de pré-sélection
+        # Par défaut, on cible la France (Datacenter Mistral ou usage local standard)
+        target_default = "France"
         
+        # On récupère l'index correspondant dans la liste (+1 car l'index 0 est 'Personnalisé')
+        default_index = SORTED_COUNTRIES.index(target_default) + 1 if target_default in SORTED_COUNTRIES else 0
+        
+        # 2. Menu déroulant (Toujours actif, modifiable par l'utilisateur)
         country_choice = st.selectbox(
-            "Pays", 
+            "Pays (Mix Électrique)", 
             ["Personnalisé"] + SORTED_COUNTRIES,
-            index=default_idx + 1,
-            label_visibility="collapsed" # Gain de place
+            index=default_index,
+            label_visibility="collapsed"
         )
         
+        # 3. Affichage et Récupération de la valeur
         if country_choice == "Personnalisé":
             carbon_intensity = st.number_input("gCO₂e/kWh", 0.0, 1000.0, 475.0)
+            st.caption("Valeur manuelle.")
         else:
             data_c = CARBON_DB[country_choice]
             carbon_intensity = data_c["val"]
-            # Affichage sur une seule ligne : Drapeau/Code | Intensité | Année
+            # Affichage compact
             c_info1, c_info2 = st.columns([1, 1])
             c_info1.metric("Intensité", f"{carbon_intensity:.0f} g")
             c_info2.caption(f"📅 {data_c['year']}\nSource: OWID")
+        
+        # 4. Feedback contextuel
+        if current_config["type"] == "api":
+            if country_choice == "France":
+                st.caption("ℹ️ *Datacenter Mistral (France) par défaut.*")
+            else:
+                st.caption(f"ℹ️ *Simulation : API Mistral hébergée en {country_choice}.*")
             
         st.caption("[Ember (2025); Energy Institute - Statistical Review of World Energy (2025)](https://ourworldindata.org/electricity-mix)")
 

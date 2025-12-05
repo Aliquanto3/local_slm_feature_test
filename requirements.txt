@@ -6,3 +6,4 @@ pandas>=2.0.0
 pypdf>=3.17.0
 watchdog>=3.0.0
 codecarbon>=2.3.0
+ecologits>=0.1.3

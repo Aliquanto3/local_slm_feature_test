@@ -9,7 +9,7 @@ import os
 # Paramètres globaux
 LOCAL_MODEL_DIR = "models_gguf"
 
-# Configuration du téléchargement (anciennement dans le JSON)
+# Configuration du téléchargement
 DOWNLOAD_SETTINGS = {
     "local_dir": LOCAL_MODEL_DIR,
     "resume_download": True,
@@ -25,6 +25,8 @@ MODELS_DB = {
             "type": "api",
             "api_id": "mistral-large-latest",
             "ctx": 256000,
+            # Facteurs EcoLogits (Large MoE)
+            "eco_ops": {"kwh_1k_in": 0.0003, "kwh_1k_out": 0.0006, "embodied_g_1k": 0.12},
             "info": {
                 "fam": "Mistral Large", "editor": "Mistral AI",
                 "desc": (
@@ -42,6 +44,8 @@ MODELS_DB = {
             "type": "api",
             "api_id": "mistral-small-latest",
             "ctx": 128000,
+            # Facteurs EcoLogits (Small MoE)
+            "eco_ops": {"kwh_1k_in": 0.00015, "kwh_1k_out": 0.0003, "embodied_g_1k": 0.04},
             "info": {
                 "fam": "Mistral Small", "editor": "Mistral AI",
                 "desc": (
@@ -59,6 +63,8 @@ MODELS_DB = {
             "type": "api",
             "api_id": "magistral-small-latest",
             "ctx": 128000,
+            # Mêmes facteurs estimés que Mistral Small 3.2
+            "eco_ops": {"kwh_1k_in": 0.00015, "kwh_1k_out": 0.0003, "embodied_g_1k": 0.04},
             "info": {
                 "fam": "Magistral", "editor": "Mistral AI",
                 "desc": (
@@ -76,6 +82,8 @@ MODELS_DB = {
             "type": "api",
             "api_id": "ministral-14b-latest",
             "ctx": 256000,
+            # Facteurs EcoLogits (Medium Dense)
+            "eco_ops": {"kwh_1k_in": 0.00010, "kwh_1k_out": 0.00020, "embodied_g_1k": 0.025},
             "info": {
                 "fam": "Ministral 3", "editor": "Mistral AI",
                 "desc": (
@@ -93,6 +101,8 @@ MODELS_DB = {
             "type": "api",
             "api_id": "ministral-8b-latest",
             "ctx": 256000,
+            # Facteurs EcoLogits (Small Dense)
+            "eco_ops": {"kwh_1k_in": 0.00008, "kwh_1k_out": 0.00016, "embodied_g_1k": 0.02},
             "info": {
                 "fam": "Ministral 3", "editor": "Mistral AI",
                 "desc": (
@@ -109,6 +119,8 @@ MODELS_DB = {
             "type": "api",
             "api_id": "ministral-3b-latest",
             "ctx": 256000,
+            # Facteurs EcoLogits (X-Small Dense)
+            "eco_ops": {"kwh_1k_in": 0.00005, "kwh_1k_out": 0.00010, "embodied_g_1k": 0.01},
             "info": {
                 "fam": "Ministral 3", "editor": "Mistral AI",
                 "desc": (
@@ -129,10 +141,8 @@ MODELS_DB = {
     "🏠 IBM Granite": {
         "Granite 3.0 3B Instruct": {
             "type": "local",
-            # Infos pour le téléchargement
             "repo_id": "bartowski/granite-3.0-3b-a800m-instruct-GGUF",
             "filename": "granite-3.0-3b-a800m-instruct-Q4_K_M.gguf",
-            # Chemin complet utilisé par l'app (construit dynamiquement)
             "file": os.path.join(LOCAL_MODEL_DIR, "granite-3.0-3b-a800m-instruct-Q4_K_M.gguf"),
             "ctx": 4096,
             "info": {

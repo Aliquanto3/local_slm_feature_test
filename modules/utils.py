@@ -1,34 +1,39 @@
 import os
 import time
 import pypdf
-import pandas as pd  # INDISPENSABLE : Requis pour le tableau de métriques
+import pandas as pd
 from io import StringIO
 import streamlit as st
 
-# --- GESTION DES IMPORTS OPTIONNELS ---
-# Permet à l'application de ne pas crasher si une lib manque
+# --- CONSTANTES GREEN IT (METHODOLOGIE ROBUSTE) ---
+# 1. SCOPE 3 : Empreinte de fabrication amortie sur la durée de vie
+# Hypothèse : Laptop business (350 kg CO2e) / Durée de vie 4 ans (usage pro)
+# 350,000g / (4 ans * 365j * 24h * 3600s) ≈ 0.0028 g/s
+LAPTOP_EMBODIED_G_PER_SEC = 0.0028 
 
-# 1. Backend Local (Llama.cpp)
+# 2. SCOPE 2 : Correction PUE / Périphériques
+# CodeCarbon mesure le CPU (ex: 20W). Il manque l'écran, le SSD, le Wifi (~10-15W constants).
+# On ajoute une consommation fixe estimée pour le reste du châssis.
+LAPTOP_PERIPHERALS_WATT = 12.0 # Watts constants (Écran allumé, Wifi ON)
+
+# --- GESTION DES IMPORTS OPTIONNELS ---
 try:
     from llama_cpp import Llama
     HAS_LOCAL_LIB = True
 except ImportError:
     HAS_LOCAL_LIB = False
 
-# 2. Backend Cloud (Mistral Client)
 try:
     from mistralai import Mistral
     HAS_MISTRAL_LIB = True
 except ImportError:
     HAS_MISTRAL_LIB = False
 
-# 3. Green IT (CodeCarbon) - INDISPENSABLE pour la mesure d'énergie
 try:
     from codecarbon import OfflineEmissionsTracker
     HAS_CODECARBON = True
 except ImportError:
     HAS_CODECARBON = False
-
 
 # --- CHARGEMENT DU MOTEUR (LOCAL) ---
 @st.cache_resource(show_spinner="Chargement du modèle en mémoire RAM...", max_entries=1)
@@ -41,22 +46,15 @@ def load_local_llm(path, ctx_size):
         raise ImportError("Librairie `llama-cpp-python` manquante.")
         
     try:
-        # n_gpu_layers=-1 : Utilise le GPU si dispo, sinon CPU
         return Llama(model_path=abs_path, n_ctx=min(ctx_size, 8192), n_gpu_layers=-1, verbose=True)
     except Exception as e:
         raise RuntimeError(f"Erreur Llama-cpp : {str(e)}")
 
 
 # --- HELPERS (TOKENS & FICHIERS) ---
-
 def count_tokens_approx(text: str) -> int:
-    """
-    Estimation rapide et légère du nombre de tokens.
-    Ratio conservateur : 1 token ~= 2.7 caractères.
-    Ne nécessite aucun chargement de modèle ni de tokenizer externe (transformers).
-    """
-    if not text: 
-        return 0
+    """Estimation rapide : 1 token ~= 2.7 caractères."""
+    if not text: return 0
     return int(len(text) / 2.7)
 
 def extract_text_from_file(uploaded_file):
@@ -77,10 +75,9 @@ def extract_text_from_file(uploaded_file):
 
 
 # --- MOTEUR DE GÉNÉRATION PRINCIPAL ---
-
 def generate_stream(model_type, model_conf, llm_local, api_key, messages, temperature=0.7, max_tokens=1024, top_p=0.9, top_k=40, carbon_intensity=475.0):
     """
-    Gère l'inférence streamée + Monitoring Green IT + Affichage Tableau
+    Gère l'inférence streamée + Calcul Green IT (Fallback Manuel pour API).
     """
     response_placeholder = st.empty()
     
@@ -91,25 +88,18 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
 
     response_placeholder.markdown("⏳ _Réflexion..._")
     
-    # --- SETUP CODECARBON ---
-    tracker = None
-    energy_kwh = 0.0
-    
-    # On lance le tracker SEULEMENT si c'est un modèle local ET que la lib est présente
-    if HAS_CODECARBON and model_type == "local":
+    # --- SETUP MONITORING LOCAL (CodeCarbon) ---
+    cc_tracker = None
+    if model_type == "local" and HAS_CODECARBON:
         try:
-            # On utilise CodeCarbon uniquement pour mesurer l'énergie brute (kWh)
-            # On force "FRA" pour l'init interne (sans impact car on recalcule le CO2 nous-mêmes après)
-            # measure_power_secs=0.1 : Sampling rapide pour capturer les pics brefs d'inférence
-            tracker = OfflineEmissionsTracker(
+            cc_tracker = OfflineEmissionsTracker(
                 country_iso_code="FRA", 
                 measure_power_secs=0.1, 
                 log_level="error", 
                 save_to_file=False
             )
-            tracker.start()
-        except Exception as e:
-            print(f"⚠️ CodeCarbon Error: {e}")
+            cc_tracker.start()
+        except Exception: pass
 
     start_time = time.time()
     full_response = ""
@@ -149,36 +139,27 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
 
     # --- BRANCHE LOCALE ---
     else:
-        # Estimation tokens input (Approximation rapide)
         prompt_str = " ".join([m["content"] for m in messages])
         input_tokens = count_tokens_approx(prompt_str)
         
         try:
             stream = llm_local.create_chat_completion(
-                messages=messages, 
-                stream=True, 
-                temperature=temperature, 
-                top_p=top_p, 
-                top_k=top_k, 
-                max_tokens=max_tokens
+                messages=messages, stream=True, temperature=temperature, 
+                top_p=top_p, top_k=top_k, max_tokens=max_tokens
             )
-            
             for chunk in stream:
                 if "content" in chunk["choices"][0]["delta"]:
                     content = chunk["choices"][0]["delta"]["content"]
                     full_response += content
                     output_tokens += 1
                     response_placeholder.markdown(full_response + "▌")
-                    
         except ValueError as e:
-            # FIX AUTOMATIQUE (Fallback Gemma/System role)
+            # Fallback (Gemma/System role)
             if "System role not supported" in str(e):
                 system_msg = next((m for m in messages if m['role'] == 'system'), None)
                 new_msgs = [m for m in messages if m['role'] != 'system']
-                
                 if system_msg and new_msgs and new_msgs[0]['role'] == 'user':
-                    new_msgs[0]['content'] = f"Context: {system_msg['content']}\n\nUser: {new_msgs[0]['content']}"
-                    
+                    new_msgs[0]['content'] = f"CTX: {system_msg['content']}\n\nQ: {new_msgs[0]['content']}"
                     try:
                         stream = llm_local.create_chat_completion(
                             messages=new_msgs, stream=True, temperature=temperature, 
@@ -189,65 +170,109 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
                                 full_response += chunk["choices"][0]["delta"]["content"]
                                 output_tokens += 1
                                 response_placeholder.markdown(full_response + "▌")
-                    except Exception: 
-                        return ""
-            else:
-                return ""
-        except Exception:
-            return ""
+                    except Exception: return ""
+            else: return ""
+        except Exception: return ""
 
-    # --- STOP & CALCULS METRICS ---
+    # --- STOP & CALCULS GREEN IT ---
+    # --- STOP & CALCULS GREEN IT ---
     duration = time.time() - start_time
-    
-    if tracker:
-        try:
-            tracker.stop()
-            # Récupération de l'énergie brute mesurée par le tracker
-            energy_kwh = tracker.final_emissions_data.energy_consumed
-        except Exception:
-            pass
-
     speed = output_tokens / duration if duration > 0 else 0
     
-    # Calcul manuel du CO2 : Energie (kWh) * Intensité (g/kWh) = gCO2
-    co2_g = energy_kwh * carbon_intensity
+    energy_kwh = 0.0
+    total_co2_g = 0.0
+    
+    # 1. CALCUL RÉEL (Celui du modèle utilisé)
+    if model_type == "api":
+        # Mistral (Cloud FR) - Méthode EcoLogits (Scope 2 + Scope 3 inclus dans les facteurs)
+        eco = model_conf.get("eco_ops", {"kwh_1k_in": 0.0002, "kwh_1k_out": 0.0004, "embodied_g_1k": 0.05})
+        e_in = (input_tokens / 1000) * eco["kwh_1k_in"]
+        e_out = (output_tokens / 1000) * eco["kwh_1k_out"]
+        energy_kwh = e_in + e_out
+        
+        scope2 = energy_kwh * 56.0 # France fixe (Datacenter)
+        scope3 = ((input_tokens + output_tokens) / 1000) * eco["embodied_g_1k"]
+        total_co2_g = scope2 + scope3
+
+    else:
+        # Local (CodeCarbon + Périphériques + Amortissement)
+        cpu_energy_kwh = 0.0
+        
+        # A. Mesure CPU (Active) via CodeCarbon
+        if cc_tracker:
+            try:
+                cc_tracker.stop()
+                cpu_energy_kwh = cc_tracker.final_emissions_data.energy_consumed
+            except Exception: pass
+            
+        # B. Estimation Périphériques (Passive : Écran, SSD...)
+        # Formule : Puissance (kW) * Temps (h)
+        peripherals_energy_kwh = (LAPTOP_PERIPHERALS_WATT / 1000) * (duration / 3600)
+        
+        # Total Énergie (Scope 2 complet)
+        energy_kwh = cpu_energy_kwh + peripherals_energy_kwh
+        
+        # Calcul Carbone
+        scope2 = energy_kwh * carbon_intensity
+        
+        # C. Ajout Scope 3 (Amortissement Matériel)
+        scope3 = duration * LAPTOP_EMBODIED_G_PER_SEC
+        
+        total_co2_g = scope2 + scope3
+
     energy_wh = energy_kwh * 1000
+    
+    # 2. CALCUL COMPARATIF "ChatGPT" (Simulation USA)
+    # Hypothèse : GPT-4o est un modèle "Large" (facteurs Mistral Large) hébergé aux USA.
+    # Facteurs "Large" (MoE)
+    gpt_factors = {"kwh_1k_in": 0.0003, "kwh_1k_out": 0.0006, "embodied_g_1k": 0.12}
+    
+    gpt_energy_kwh = ((input_tokens / 1000) * gpt_factors["kwh_1k_in"]) + \
+                     ((output_tokens / 1000) * gpt_factors["kwh_1k_out"])
+    
+    INTENSITY_USA = 367.0 # Moyenne USA (Source OWID 2023)
+    gpt_co2_g = (gpt_energy_kwh * INTENSITY_USA) + \
+                (((input_tokens + output_tokens) / 1000) * gpt_factors["embodied_g_1k"])
 
     response_placeholder.markdown(full_response)
     
-    # --- CONSTRUCTION DU TABLEAU RÉCAPITULATIF ---
+    # --- TABLEAU RÉCAPITULATIF (3 COLONNES) ---
     st.markdown("#### 📊 Métriques de la session")
     
-    # On prépare les données pour le DataFrame
     metrics_data = {
         "Indicateur": [
-            "⏱️ Durée (s)", 
-            "⚡ Vitesse (tok/s)", 
-            "📥 Input (tok)", 
-            "📤 Output (tok)", 
-            "🔋 Énergie (Wh)", 
-            "🌍 Empreinte (mg CO₂e)" # mg car chiffres souvent très petits pour une requête
+            "⏱️ Durée (s)", "⚡ Vitesse (tok/s)", "📥 Input (tok)", "📤 Output (tok)", 
+            "🔋 Énergie (Wh)", "🌍 Empreinte (mg CO₂e)" 
         ],
-        "Valeur": [
-            f"{duration:.2f}",
-            f"{speed:.1f}",
-            f"{input_tokens}",
-            f"{output_tokens}",
-            "N/A (Cloud)" if model_type == "api" else f"{energy_wh:.5f}",
-            "N/A (Cloud)" if model_type == "api" else f"{co2_g * 1000:.2f}"
+        "Ce Run": [
+            f"{duration:.2f}", f"{speed:.1f}", f"{input_tokens}", f"{output_tokens}",
+            f"{energy_wh:.5f}", f"{total_co2_g * 1000:.2f}"
+        ],
+        "Si ChatGPT (USA) 🇺🇸": [
+            "~", "~", f"{input_tokens}", f"{output_tokens}",
+            f"{gpt_energy_kwh * 1000:.5f}", f"{gpt_co2_g * 1000:.2f}"
         ]
     }
     
+    # Légendes contextuelles
+    if model_type == "api":
+        st.caption("ℹ️ *Ce Run (Mistral) : Datacenter France (56g).*")
+    else:
+        st.caption(f"ℹ️ *Ce Run (Local) : Mix Pays sélectionné ({carbon_intensity:.0f}g).*")
+    
+    st.caption("ℹ️ *Comparatif ChatGPT : Estimation 'Large Model' hébergé aux USA (367g).*")
+
     df_metrics = pd.DataFrame(metrics_data)
     
-    # Affichage en tableau interactif (triable, exportable CSV)
+    # Affichage avec surbrillance
     st.dataframe(
         df_metrics, 
         use_container_width=True, 
         hide_index=True,
         column_config={
-            "Indicateur": st.column_config.TextColumn("Indicateur", width="medium"),
-            "Valeur": st.column_config.TextColumn("Résultat", width="medium")
+            "Indicateur": st.column_config.TextColumn("Métrique", width="small"),
+            "Ce Run": st.column_config.TextColumn("Résultat Actuel", width="medium"),
+            "Si ChatGPT (USA) 🇺🇸": st.column_config.TextColumn("Estimation ChatGPT", width="medium"),
         }
     )
     
