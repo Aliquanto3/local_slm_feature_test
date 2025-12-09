@@ -2,6 +2,8 @@ import os
 import time
 import pypdf
 import pandas as pd
+import psutil
+import platform
 from io import StringIO
 import streamlit as st
 
@@ -235,6 +237,11 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
                 (((input_tokens + output_tokens) / 1000) * gpt_factors["embodied_g_1k"])
 
     response_placeholder.markdown(full_response)
+
+    # --- AJOUT : MESURE MÉMOIRE RAM ---
+    process = psutil.Process(os.getpid())
+    # On divise par 1024^3 pour avoir des Go
+    ram_usage_gb = process.memory_info().rss / (1024 * 1024 * 1024)
     
     # --- TABLEAU RÉCAPITULATIF (3 COLONNES) ---
     st.markdown("#### 📊 Métriques de la session")
@@ -242,14 +249,17 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
     metrics_data = {
         "Indicateur": [
             "⏱️ Durée (s)", "⚡ Vitesse (tok/s)", "📥 Input (tok)", "📤 Output (tok)", 
+            "💾 RAM Actuelle (Go)", # <--- Label modifié
             "🔋 Énergie (Wh)", "🌍 Empreinte (mg CO₂e)" 
         ],
         "Ce Run": [
             f"{duration:.2f}", f"{speed:.1f}", f"{input_tokens}", f"{output_tokens}",
+            f"{ram_usage_gb:.2f}",  # <--- Valeur modifiée (2 décimales)
             f"{energy_wh:.5f}", f"{total_co2_g * 1000:.2f}"
         ],
         "Si ChatGPT (USA) 🇺🇸": [
             "~", "~", f"{input_tokens}", f"{output_tokens}",
+            "N/A", # <--- PAS DE COMPARAISON PERTINENTE POUR LE CLOUD
             f"{gpt_energy_kwh * 1000:.5f}", f"{gpt_co2_g * 1000:.2f}"
         ]
     }
@@ -277,3 +287,81 @@ def generate_stream(model_type, model_conf, llm_local, api_key, messages, temper
     )
     
     return full_response
+
+# --- CONFIGURATION & HARDWARE ---
+def get_hardware_specs():
+    """Récupère les spécifications du PC avec explications pédagogiques."""
+    try:
+        # RAM
+        mem = psutil.virtual_memory()
+        total_ram_gb = round(mem.total / (1024**3), 2)
+        avail_ram_gb = round(mem.available / (1024**3), 2)
+        
+        # CPU
+        cpu_name = platform.processor()
+        phys_cores = psutil.cpu_count(logical=False)
+        log_cores = psutil.cpu_count(logical=True)
+        freq = psutil.cpu_freq().max if psutil.cpu_freq() else "N/A"
+        
+        # On structure les données pour le tableau
+        data = [
+            {
+                "Composant": "OS", 
+                "Détail": f"{platform.system()} {platform.release()}",
+                "Rôle": "Le système d'exploitation hôte."
+            },
+            {
+                "Composant": "CPU", 
+                "Détail": f"{cpu_name} ({phys_cores} Coeurs)",
+                "Rôle": "Le moteur de calcul. Plus de coeurs aide au traitement parallèle."
+            },
+            {
+                "Composant": "Fréquence", 
+                "Détail": f"{freq} Mhz" if isinstance(freq, (int, float)) else "N/A",
+                "Rôle": "Vitesse d'horloge du CPU."
+            },
+            {
+                "Composant": "RAM Totale", 
+                "Détail": f"{total_ram_gb} Go",
+                "Rôle": "Capacité maximale. Le modèle doit tenir dedans."
+            },
+            {
+                "Composant": "RAM Dispo", 
+                "Détail": f"{avail_ram_gb} Go",
+                "Rôle": "Espace libre réel maintenant. Si < Taille Modèle, ça ralentit fort."
+            },
+            {
+                "Composant": "Architecture", 
+                "Détail": platform.machine(),
+                "Rôle": "Type d'instructions (souvent AMD64 ou ARM64)."
+            }
+        ]
+        
+        return data
+    except Exception as e:
+        return [{"Composant": "Erreur", "Détail": str(e), "Rôle": "Erreur de lecture"}]
+    
+def estimate_model_performance(model_size_gb, total_ram_gb):
+    """
+    Estime la vitesse (Tokens/s) basée sur la bande passante mémoire théorique.
+    Heuristique : La vitesse d'inférence est limitée par la vitesse de lecture RAM (Memory Bandwidth Bound).
+    Hypothèse 'PC Portable Pro' (DDR4/DDR5) : ~35 GB/s de bande passante effective.
+    """
+    
+    # 1. Vérification Capacité (Si le modèle est plus gros que la RAM, ça va swapper -> 0.1 t/s)
+    # On garde une marge de 2 Go pour l'OS
+    if model_size_gb > (total_ram_gb - 2):
+        return "⚠️ Trop lourd (Swap)", 0.1
+    
+    # 2. Calcul théorique
+    # Formule : Bandwidth (GB/s) / Model Size (GB) = Tokens/s (approx)
+    # On prend une moyenne conservatrice de 30 GB/s pour un laptop moderne
+    estimated_bandwidth_gbs = 30.0 
+    
+    # Pénalité pour les très petits modèles (overhead CPU/Python)
+    tps = estimated_bandwidth_gbs / max(model_size_gb, 0.1)
+    
+    # Plafond réaliste pour CPU (rarement au dessus de 100 t/s sans GPU dédié optimisé)
+    tps = min(tps, 80.0)
+    
+    return f"~{int(tps * 0.8)} - {int(tps * 1.2)} t/s", tps

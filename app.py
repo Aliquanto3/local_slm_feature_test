@@ -223,7 +223,7 @@ with param_col:
 # --- COLONNE GAUCHE : NAVIGATION ---
 with main_col:
     # Menu de navigation
-    tabs_labels = ["🏢 Ops", "🤖 IoT", "📝 Synthèse", "🌐 Traduction", "💻 Code", "🧠 Logique", "💬 Chat", "ℹ️ Documentation"]
+    tabs_labels = ["🏢 Ops", "🤖 IoT", "📝 Synthèse", "🌐 Traduction", "💻 Code", "🧠 Logique", "💬 Chat", "ℹ️ Documentation", "⚙️ Config"]
     selected_tab = st.radio("Nav", tabs_labels, horizontal=True, label_visibility="collapsed", key="nav")
     st.markdown("---")
 
@@ -248,3 +248,4 @@ with main_col:
     elif selected_tab == tabs_labels[5]: views.render_logic_tab(gen_kwargs)
     elif selected_tab == tabs_labels[6]: views.render_chat_tab(gen_kwargs)
     elif selected_tab == tabs_labels[7]: views.render_doc_tab(MODELS_DB)
+    elif selected_tab == tabs_labels[8]: views.render_config_tab(MODELS_DB)

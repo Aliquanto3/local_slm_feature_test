@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from modules.utils import generate_stream, extract_text_from_file, count_tokens_approx
+import psutil
+from modules.utils import generate_stream, extract_text_from_file, count_tokens_approx, get_hardware_specs, estimate_model_performance
 
 # --- WIDGETS UI COMMUNS ---
 
@@ -194,53 +195,151 @@ def render_chat_tab(gen_kwargs):
                 st.session_state.history.pop() # On annule le message utilisateur
 
 def render_doc_tab(models_db):
-    """Onglet 8 : Documentation (Mise à jour méthodologie Iso-Scope)"""
+    """Onglet 8 : Documentation Interactive (Améliorée avec Emojis & Libellés)"""
     st.markdown("### 📚 Documentation Interactive")
     
-    doc_tab1, doc_tab2, doc_tab3 = st.tabs(["🤖 Modèles & Architecture", "☁️ Mode Hybride", "🌱 Méthodologie Green IT"])
+    # --- 1. DICTIONNAIRES DE MAPPING (CONFIG UX) ---
+    # Pour afficher des jolis noms au lieu des codes techniques
+    
+    LANG_MAP = {
+        "en": "🇬🇧 Anglais", "fr": "🇫🇷 Français", "de": "🇩🇪 Allemand",
+        "es": "🇪🇸 Espagnol", "it": "🇮🇹 Italien", "pt": "🇵🇹 Portugais",
+        "zh": "🇨🇳 Chinois", "ja": "🇯🇵 Japonais", "ko": "🇰🇷 Coréen",
+        "ru": "🇷🇺 Russe", "ar": "🇸🇦 Arabe", "hi": "🇮🇳 Hindi", "th": "🇹🇭 Thaï"
+    }
+
+    ROLE_MAP = {
+        "assistant_generalist":   "🧠 Assistant Polyvalent",
+        "assistant_light":        "⚡ Assistant Léger / Rapide",
+        "rag":                    "📝 Synthèse & RAG",
+        "code":                   "💻 Code & Dev",
+        "reasoning":              "🧩 Raisonnement & Logique",
+        "math_stem":              "📐 Maths & Sciences",
+        "tool_calling":           "🛠️ Agents & Outils",
+        "routing_classification": "🔀 Routage & Classification",
+        "edge_on_device":         "📱 Edge / Embarqué",
+        "enterprise":             "🏢 Entreprise & Conformité",
+        "educational_tutor":      "🎓 Tutorat & Pédagogie"
+    }
+
+    doc_tab1, doc_tab2, doc_tab3 = st.tabs(["🤖 Catalogue & Filtres", "☁️ Mode Hybride", "🌱 Méthodologie Green IT"])
 
     with doc_tab1:
-        st.markdown("#### Philosophie du Workbench")
-        st.info("""
-        **Objectif :** Démontrer qu'un SLM (Small Language Model) exécuté localement sur un CPU standard 
-        peut rivaliser avec le Cloud pour des tâches ciblées (Triage, PII, Synthèse), tout en garantissant 
-        la confidentialité des données et une empreinte carbone maîtrisée.
-        """)
+        st.markdown("#### 🔍 Trouver le modèle idéal")
         
-        st.markdown("#### 🏗️ Architecture Technique")
-        st.markdown("""
-        * **Moteur d'inférence :** `llama.cpp` (via `llama-cpp-python`).
-        * **Format de modèle :** GGUF (GPT-Generated Unified Format).
-        * **Quantization (Q4_K_M) :** Compression des poids du modèle sur 4 bits. Cela réduit la VRAM/RAM nécessaire par 4 sans perte significative de "QI" du modèle.
-        """)
+        # --- 2. COLLECTE DES DONNÉES BRUTES ---
+        raw_langs = set()
+        raw_roles = set()
+        
+        for family, variants in models_db.items():
+            for _, config in variants.items():
+                info = config.get("info", {})
+                raw_langs.update(info.get("langs", []))
+                raw_roles.update(info.get("role_pref", []))
+        
+        # --- 3. CONVERSION EN LISTES FORMATEES POUR L'UI ---
+        # On utilise .get(k, k) pour garder le code brut si jamais il manque dans le dictionnaire
+        fmt_lang_options = sorted([LANG_MAP.get(k, k) for k in raw_langs])
+        fmt_role_options = sorted([ROLE_MAP.get(k, k) for k in raw_roles])
 
-        st.markdown("#### 📋 Catalogue des Modèles")
+        # --- 4. ZONE DE FILTRAGE (WIDGETS) ---
+        col_fil1, col_fil2 = st.columns(2)
+        with col_fil1:
+            sel_langs_fmt = st.multiselect("🌍 Filtrer par Langue", fmt_lang_options)
+        with col_fil2:
+            sel_roles_fmt = st.multiselect("🎯 Filtrer par Cas d'usage", fmt_role_options)
+
+        if sel_langs_fmt or sel_roles_fmt:
+            st.caption(f"ℹ️ Filtres actifs : {len(sel_langs_fmt)} langue(s), {len(sel_roles_fmt)} rôle(s).")
         
-        # Helper pour créer le dataframe (identique à avant)
-        def _create_df(model_type_filter):
+        # --- 5. LOGIQUE DE FILTRAGE ET CRÉATION DATAFRAME ---
+        def _create_filtered_df(model_type_filter):
             data = []
             for family, variants in models_db.items():
+                # Filtre Type (Local vs API)
                 is_api_fam = "API" in family or "☁️" in family
                 if (model_type_filter == "local" and is_api_fam) or (model_type_filter == "api" and not is_api_fam):
                     continue
+                
                 for name, config in variants.items():
                     info = config["info"]
+                    # Récupération des données brutes du modèle
+                    m_langs_raw = info.get("langs", [])
+                    m_roles_raw = info.get("role_pref", [])
+
+                    # Conversion en format "Joli" pour la comparaison avec le filtre et l'affichage
+                    m_langs_fmt = [LANG_MAP.get(k, k) for k in m_langs_raw]
+                    m_roles_fmt = [ROLE_MAP.get(k, k) for k in m_roles_raw]
+
+                    # LOGIQUE DE FILTRAGE (Mode "ET" strict / Subset)
+                    # On ne garde le modèle que si TOUS les éléments sélectionnés sont présents dans ses capacités
+                    
+                    # 1. Filtre Langues (ET)
+                    if sel_langs_fmt and not set(sel_langs_fmt).issubset(set(m_langs_fmt)):
+                        continue
+                        
+                    # 2. Filtre Cas d'usage (ET)
+                    if sel_roles_fmt and not set(sel_roles_fmt).issubset(set(m_roles_fmt)):
+                        continue
+
                     data.append({
+                        "Famille": family,
                         "Modèle": name,
-                        "Éditeur": info["editor"],
+                        "Langues": ", ".join(m_langs_fmt),
+                        "Rôles Clés": ", ".join(m_roles_fmt),
                         "Description": info["desc"],
-                        "Params": f"{info['params_tot']} (Actifs: {info['params_act']})",
-                        "Taille": info["disk"],
-                        "RAM Req.": info.get("ram", "N/A"),
+                        "Taille": f"{info['disk']} Go" if "disk" in info else "N/A",
+                        "Params Totaux": f"{info['params_tot']}B",
+                        "Params Actifs": f"{info['params_act']}B",
                     })
             return pd.DataFrame(data)
 
+        # --- 6. AFFICHAGE DES TABLEAUX ---
+        
         st.markdown("##### 🏠 Modèles Locaux (Edge)")
-        st.dataframe(_create_df("local"), use_container_width=True, hide_index=True)
+        df_local = _create_filtered_df("local")
+        
+        if not df_local.empty:
+            st.dataframe(
+                df_local, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={
+                    "Langues": st.column_config.TextColumn("Langues", width="medium"),
+                    "Rôles Clés": st.column_config.TextColumn("Rôles Recommandés", width="medium"),
+                    "Description": st.column_config.TextColumn("Description", width="large"),
+                    "Taille": st.column_config.TextColumn("Poids", width="small"),
+                    # 👇 CONFIGURATION VISUELLE ICI
+                    "Params Totaux": st.column_config.TextColumn("Params Tot.", width="small"),
+                    "Params Actifs": st.column_config.TextColumn("Params Act.", width="small"),
+                }
+            )
+        else:
+            st.warning("Aucun modèle local ne correspond aux filtres.")
+        
+        st.divider()
         
         st.markdown("##### ☁️ Modèles Cloud (Comparaison)")
-        st.dataframe(_create_df("api"), use_container_width=True, hide_index=True)
+        df_api = _create_filtered_df("api")
+        if not df_api.empty:
+            st.dataframe(
+                df_api, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={
+                    "Langues": st.column_config.TextColumn("Langues", width="medium"),
+                    "Rôles Clés": st.column_config.TextColumn("Rôles Recommandés", width="medium"),
+                    "Description": st.column_config.TextColumn("Description", width="large"),
+                    "Taille": st.column_config.TextColumn("Poids", width="small"),
+                    # 👇 CONFIGURATION VISUELLE ICI
+                    "Params Totaux": st.column_config.TextColumn("Params Tot.", width="small"),
+                    "Params Actifs": st.column_config.TextColumn("Params Act.", width="small"),
+                }
+            )
+        else:
+            st.info("Aucun modèle cloud ne correspond aux filtres.")
 
+    # --- CONTENU STATIQUE (Doc Tabs 2 & 3 inchangés) ---
     with doc_tab2:
         st.markdown("#### Configuration API Mistral")
         st.markdown("""
@@ -297,14 +396,87 @@ def render_doc_tab(models_db):
                 * Incluse dans le facteur par token. Elle représente la part d'usure des GPU (H100) partagés allouée à votre requête.
             """)
 
-        st.divider()
-        st.markdown("#### 📊 Pourquoi ces résultats ?")
-        st.info("""
-        Même en pénalisant le calcul local avec l'amortissement du matériel (Scope 3) et la consommation de l'écran (Périphériques), 
-        **l'IA Locale en France reste 2x à 10x moins émissive** que les grands modèles Cloud hébergés aux USA.
+def render_config_tab(models_db):
+    """Onglet 9 : Configuration & Hardware"""
+    
+    st.markdown("### ⚙️ Configuration & Hardware")
+    
+    # --- 1. TABLEAU HARDWARE ---
+    st.markdown("#### 🖥️ Votre Machine")
+    # Récupération des données (format liste de dicts maintenant)
+    specs_data = get_hardware_specs()
+    df_specs = pd.DataFrame(specs_data)
+    
+    st.dataframe(
+        df_specs, 
+        use_container_width=True, 
+        hide_index=True,
+        column_config={
+            "Composant": st.column_config.TextColumn("Composant", width="small"),
+            "Détail": st.column_config.TextColumn("Valeur Technique", width="medium"),
+            "Rôle": st.column_config.TextColumn("💡 À quoi ça sert ?", width="large"),
+        }
+    )
+    
+    # Récupération RAM totale pour les calculs (en float)
+    mem_total_gb = psutil.virtual_memory().total / (1024**3)
+
+    # --- 2. TABLEAU PERFORMANCE ---
+    st.markdown("#### 🚀 Estimation de Performance (Locales)")
+    
+    perf_data = []
+    
+    # On boucle uniquement sur les modèles LOCAUX
+    for family, variants in models_db.items():
+        # On saute les catégories cloud
+        if "API" in family or "Mistral" in family: continue 
         
-        Cela s'explique par :
-        1.  La sobriété des modèles SLM (1B à 3B paramètres vs 100B+).
-        2.  Le mix électrique bas-carbone français.
-        3.  L'absence de transfert réseau complexe.
+        for name, conf in variants.items():
+            if conf["type"] == "local":
+                size_gb = conf["info"]["disk"]
+                est_str, est_val = estimate_model_performance(size_gb, mem_total_gb)
+                
+                # Petit indicateur visuel
+                status = "🟢 Fluide"
+                if est_val < 10: status = "🟠 Lent"
+                if est_val < 1: status = "🔴 Critique"
+                
+                perf_data.append({
+                    "Famille": family.replace("🏠 ", ""), # On retire l'emoji pour la lisibilité
+                    "Modèle": name,
+                    "Poids (Go)": f"{size_gb} Go",
+                    "Estimation Vitesse": est_str,
+                    "Statut": status
+                })
+    
+    if perf_data:
+        df_perf = pd.DataFrame(perf_data)
+        st.dataframe(
+            df_perf, 
+            use_container_width=True, 
+            hide_index=True,
+            column_config={
+                "Statut": st.column_config.TextColumn("Verdict", width="small")
+            }
+        )
+    else:
+        st.info("Aucun modèle local configuré pour l'estimation.")
+
+    # --- 3. EXPLICATION ---
+    with st.expander("ℹ️ Comment est calculée cette estimation ?"):
+        st.markdown("""
+        **La "Physique" des LLM Locaux :**
+        Sur un CPU, la vitesse de génération de texte est rarement limitée par la puissance de calcul pur (GFLOPS), 
+        mais par la **Bande Passante Mémoire** (Memory Bandwidth).
+        
+        Le processeur doit lire l'intégralité du modèle en RAM pour générer *chaque* mot (token).
+        
+        **La Formule utilisée :**
+        $$
+        \\text{Vitesse (t/s)} \\approx \\frac{\\text{Bande Passante (Go/s)}}{\\text{Taille Modèle (Go)}}
+        $$
+        
+        *Nous utilisons une hypothèse de bande passante moyenne de **30 Go/s** (Standard DDR4/DDR5 Laptop).*
+        * *Exemple :* Un modèle de **3 Go** sur une RAM à **30 Go/s** tournera à environ **10 t/s**.
+        * *Note :* Si le modèle dépasse la RAM physique disponible, la vitesse chute drastiquement (Swap disque).
         """)
